@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createNode, getEdgePath, getNodeById, hasCycle, isCompatible, PORT_TYPES } from "./lib/graph";
+import {
+  createNode,
+  createsCycle,
+  getEdgePath,
+  getNodeById,
+  isCompatible,
+  PORT_TYPES,
+} from "./lib/graph";
 import { loadProject, saveProject } from "./store/db";
-import type { Edge, NodeItem, PortType, ProjectState } from "./types";
+import type { NodeItem, PortType, ProjectState } from "./types";
 import "./styles.css";
 
 const initialProject: ProjectState = {
@@ -44,7 +51,9 @@ function App() {
   const [status, setStatus] = useState("جاهز");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<{ nodeId: string; portId: string } | null>(null);
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
 
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     kind: "node" | "pan";
     nodeId?: string;
@@ -52,6 +61,8 @@ function App() {
     startY: number;
     origX?: number;
     origY?: number;
+    panX?: number;
+    panY?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -76,17 +87,26 @@ function App() {
 
   const filteredNodes = useMemo(() => {
     if (!search.trim()) return project.nodes;
+
     const q = search.toLowerCase();
     return project.nodes.filter((node) => {
-      const hay = `${node.title} ${node.content} ${node.type}`.toLowerCase();
-      return hay.includes(q);
+      const value = `${node.title} ${node.content} ${node.type}`.toLowerCase();
+      return value.includes(q);
     });
   }, [project, search]);
 
   const addNode = () => {
-    const node = createNode(200 + Math.random() * 180, 150 + Math.random() * 180, "بطاقة جديدة");
+    const node = createNode(220 + Math.random() * 200, 170 + Math.random() * 170, "بطاقة جديدة");
     setProject((prev) => ({ ...prev, nodes: [...prev.nodes, node] }));
     setStatus("تمت إضافة بطاقة جديدة");
+  };
+
+  const resetProject = () => {
+    setProject(initialProject);
+    setSelectedNodeId(null);
+    setConnecting(null);
+    setView({ x: 0, y: 0, scale: 1 });
+    setStatus("تمت إعادة تعيين مساحة العمل");
   };
 
   const updateNode = (nodeId: string, patch: Partial<NodeItem>) => {
@@ -102,6 +122,7 @@ function App() {
       nodes: prev.nodes.filter((node) => node.id !== nodeId),
       edges: prev.edges.filter((edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId),
     }));
+    setSelectedNodeId((current) => (current === nodeId ? null : current));
     setStatus("تم حذف البطاقة");
   };
 
@@ -133,7 +154,7 @@ function App() {
       return;
     }
 
-    if (hasCycle(project.nodes, project.edges, fromNodeId, toNodeId)) {
+    if (createsCycle(project.nodes, project.edges, fromNodeId, toNodeId)) {
       setStatus("تم رفض الاتصال لأنه يؤدي إلى دورة");
       return;
     }
@@ -154,6 +175,38 @@ function App() {
 
     setStatus("تم إنشاء اتصال جديد");
     setConnecting(null);
+  };
+
+  const exportProject = () => {
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "node-universe-project.json";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("تم تصدير المشروع");
+  };
+
+  const importProject = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+        throw new Error("تنسيق الملف غير صالح");
+      }
+
+      setProject(parsed);
+      setStatus("تم استيراد المشروع");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "فشل الاستيراد");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const onNodePointerDown = (event: React.PointerEvent<HTMLDivElement>, node: NodeItem) => {
@@ -177,6 +230,8 @@ function App() {
       kind: "pan",
       startX: event.clientX,
       startY: event.clientY,
+      panX: view.x,
+      panY: view.y,
     };
   };
 
@@ -184,8 +239,8 @@ function App() {
     if (!dragRef.current) return;
 
     if (dragRef.current.kind === "node" && dragRef.current.nodeId) {
-      const dx = event.clientX - dragRef.current.startX;
-      const dy = event.clientY - dragRef.current.startY;
+      const dx = (event.clientX - dragRef.current.startX) / view.scale;
+      const dy = (event.clientY - dragRef.current.startY) / view.scale;
 
       setProject((prev) => ({
         ...prev,
@@ -193,17 +248,42 @@ function App() {
           node.id === dragRef.current!.nodeId
             ? {
                 ...node,
-                x: (dragRef.current!.origX ?? node.x) + dx / 1.1,
-                y: (dragRef.current!.origY ?? node.y) + dy / 1.1,
+                x: (dragRef.current!.origX ?? node.x) + dx,
+                y: (dragRef.current!.origY ?? node.y) + dy,
               }
             : node
         ),
+      }));
+    }
+
+    if (dragRef.current.kind === "pan") {
+      setView((prev) => ({
+        ...prev,
+        x: (dragRef.current!.panX ?? prev.x) + (event.clientX - dragRef.current!.startX),
+        y: (dragRef.current!.panY ?? prev.y) + (event.clientY - dragRef.current!.startY),
       }));
     }
   };
 
   const onPointerUp = () => {
     dragRef.current = null;
+  };
+
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const oldScale = view.scale;
+    const newScale = Math.min(1.8, Math.max(0.45, oldScale * (event.deltaY < 0 ? 1.12 : 0.9)));
+
+    const nextX = mouseX - ((mouseX - view.x) / oldScale) * newScale;
+    const nextY = mouseY - ((mouseY - view.y) / oldScale) * newScale;
+
+    setView({ x: nextX, y: nextY, scale: newScale });
   };
 
   return (
@@ -213,8 +293,13 @@ function App() {
           <b>NODE</b> <span>UNIVERSE</span>
         </div>
 
-        <button onClick={addNode}>+ بطاقة</button>
-        <button onClick={() => setProject(initialProject)}>إعادة تعيين</button>
+        <button type="button" onClick={addNode}>+ بطاقة</button>
+        <button type="button" onClick={resetProject}>إعادة تعيين</button>
+        <button type="button" onClick={exportProject}>تصدير</button>
+        <label className="import-button">
+          <input type="file" accept="application/json" onChange={importProject} />
+          <span>استيراد</span>
+        </label>
 
         <input
           className="search"
@@ -226,99 +311,115 @@ function App() {
         <div className="status">{status}</div>
       </header>
 
-      <div className="stage" onPointerDown={onStagePointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
-        <svg className="wire-layer" aria-label="Layer of wires">
-          {project.edges.map((edge) => {
-            const from = getNodeById(project.nodes, edge.fromNodeId);
-            const to = getNodeById(project.nodes, edge.toNodeId);
-            if (!from || !to) return null;
+      <div
+        ref={stageRef}
+        className="stage"
+        onPointerDown={onStagePointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onWheel={onWheel}
+      >
+        <div
+          className="scene"
+          style={{
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+          }}
+        >
+          <svg className="wire-layer" aria-label="Layer of wires">
+            {project.edges.map((edge) => {
+              const from = getNodeById(project.nodes, edge.fromNodeId);
+              const to = getNodeById(project.nodes, edge.toNodeId);
+              if (!from || !to) return null;
 
-            const path = getEdgePath(from, to);
-            return <path key={edge.id} className="wire" d={path.d} />;
-          })}
-        </svg>
+              const path = getEdgePath(from, to);
+              return <path key={edge.id} className="wire" d={path.d} />;
+            })}
+          </svg>
 
-        {filteredNodes.map((node) => {
-          const selected = node.id === selectedNodeId;
+          {filteredNodes.map((node) => {
+            const selected = node.id === selectedNodeId;
 
-          return (
-            <div
-              key={node.id}
-              className={`node ${selected ? "selected" : ""}`}
-              style={{ left: `${node.x}px`, top: `${node.y}px` }}
-              onPointerDown={(event) => onNodePointerDown(event, node)}
-            >
-              <div className="node-header">
-                <input
-                  value={node.title}
-                  onChange={(event) => updateNode(node.id, { title: event.target.value })}
+            return (
+              <div
+                key={node.id}
+                className={`node ${selected ? "selected" : ""}`}
+                style={{ left: `${node.x}px`, top: `${node.y}px` }}
+                onPointerDown={(event) => onNodePointerDown(event, node)}
+              >
+                <div className="node-header">
+                  <input
+                    value={node.title}
+                    onChange={(event) => updateNode(node.id, { title: event.target.value })}
+                  />
+                  <select
+                    value={node.type}
+                    onChange={(event) => updateNode(node.id, { type: event.target.value as PortType })}
+                  >
+                    {PORT_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className="delete-btn" onClick={() => deleteNode(node.id)}>
+                    ×
+                  </button>
+                </div>
+
+                <div className="ports">
+                  <div className="port-column">
+                    {node.inputPorts.map((port) => (
+                      <button
+                        key={port.id}
+                        type="button"
+                        className="port port-in"
+                        onClick={() => {
+                          if (connecting) {
+                            connect(connecting.nodeId, connecting.portId, node.id, port.id);
+                          }
+                        }}
+                      >
+                        {port.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="port-column">
+                    {node.outputPorts.map((port) => (
+                      <button
+                        key={port.id}
+                        type="button"
+                        className="port port-out"
+                        onClick={() => {
+                          setConnecting({ nodeId: node.id, portId: port.id });
+                          setStatus("حدد مدخل العقدة الهدف");
+                        }}
+                      >
+                        {port.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <textarea
+                  value={node.content}
+                  onChange={(event) => updateNode(node.id, { content: event.target.value })}
+                  placeholder="اكتب محتوى البطاقة..."
                 />
-                <select
-                  value={node.type}
-                  onChange={(event) => updateNode(node.id, { type: event.target.value as PortType })}
-                >
-                  {PORT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" className="delete-btn" onClick={() => deleteNode(node.id)}>
-                  ×
-                </button>
-              </div>
 
-              <div className="ports">
-                <div className="port-column">
-                  {node.inputPorts.map((port) => (
-                    <button
-                      key={port.id}
-                      type="button"
-                      className="port port-in"
-                      onClick={() => {
-                        if (connecting) {
-                          connect(connecting.nodeId, connecting.portId, node.id, port.id);
-                        }
-                      }}
-                    >
-                      {port.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="port-column">
-                  {node.outputPorts.map((port) => (
-                    <button
-                      key={port.id}
-                      type="button"
-                      className="port port-out"
-                      onClick={() => {
-                        setConnecting({ nodeId: node.id, portId: port.id });
-                        setStatus("حدد مدخل العقدة الهدف");
-                      }}
-                    >
-                      {port.name}
-                    </button>
-                  ))}
+                <div className="node-footer">
+                  <span>{node.type}</span>
+                  <span>{node.id.slice(0, 4)}</span>
                 </div>
               </div>
-
-              <textarea
-                value={node.content}
-                onChange={(event) => updateNode(node.id, { content: event.target.value })}
-                placeholder="اكتب محتوى البطاقة..."
-              />
-
-              <div className="node-footer">
-                <span>{node.type}</span>
-                <span>{node.id.slice(0, 4)}</span>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
 export default App;
+

@@ -60,11 +60,11 @@ export function getEdgePath(from: NodeItem, to: NodeItem) {
   };
 }
 
-export function hasCycle(
+export function createsCycle(
   nodes: NodeItem[],
   edges: Edge[],
-  startNodeId: string,
-  targetNodeId: string
+  fromNodeId: string,
+  toNodeId: string
 ): boolean {
   const adjacency = new Map<string, string[]>();
   nodes.forEach((node) => adjacency.set(node.id, []));
@@ -75,23 +75,23 @@ export function hasCycle(
   });
 
   const visited = new Set<string>();
-  const stack = new Set<string>();
+  const path = new Set<string>();
 
   const dfs = (nodeId: string): boolean => {
-    if (nodeId === targetNodeId) return true;
-    if (stack.has(nodeId)) return false;
+    if (nodeId === fromNodeId) return true;
+    if (path.has(nodeId)) return false;
     if (visited.has(nodeId)) return false;
 
     visited.add(nodeId);
-    stack.add(nodeId);
+    path.add(nodeId);
 
     for (const next of adjacency.get(nodeId) ?? []) {
       if (dfs(next)) return true;
     }
 
-    stack.delete(nodeId);
+    path.delete(nodeId);
     return false;
   };
 
-  return dfs(startNodeId);
+  return dfs(toNodeId);
 }
