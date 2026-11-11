@@ -1,0 +1,212 @@
+:root {
+  --bg: #0d1118;
+  --panel: #141d2a;
+  --panel-2: #1a2533;
+  --border: #2b394d;
+  --text: #ecf4ff;
+  --muted: #a9bed7;
+  --accent: #69a7ff;
+  --success: #8fe7b1;
+  --danger: #ff7c7c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: 64px 1fr;
+  height: 100vh;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(20, 29, 42, 0.95);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+}
+
+.brand {
+  font-size: 1.35rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+.search {
+  margin-inline-start: auto;
+  width: min(280px, 35vw);
+  padding: 10px 12px;
+  background: #0d141d;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+.status {
+  color: var(--success);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.stage {
+  position: relative;
+  background:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+    var(--bg);
+  background-size: 28px 28px, 28px 28px, auto;
+  overflow: hidden;
+  user-select: none;
+}
+
+.wire-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.wire {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.node {
+  position: absolute;
+  width: 260px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 16px 30px rgba(0, 0, 0, 0.28);
+}
+
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.node-header input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.node-header select {
+  background: #101922;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.delete-btn {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  font-size: 1.3rem;
+}
+
+.ports {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 10px 0;
+}
+
+.port-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.port {
+  border: none;
+  border-radius: 999px;
+  color: white;
+  padding: 7px 10px;
+  min-width: 72px;
+}
+
+.port-in {
+  background: #2bbf90;
+}
+
+.port-out {
+  background: #4a8ef2;
+}
+
+.node textarea {
+  width: calc(100% - 20px);
+  margin: 12px 10px 8px;
+  min-height: 90px;
+  resize: vertical;
+  padding: 10px;
+  background: #0d141d;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+.node-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 12px 12px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 9px 12px;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
