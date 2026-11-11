@@ -30,6 +30,16 @@ export interface NodeItem {
   outputPorts: Port[];
 }
 
+export interface Frame {
+  id: string;
+  title: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  memberNodeIds: string[];
+}
+
 export interface Edge {
   id: string;
   fromNodeId: string;
@@ -41,4 +51,5 @@ export interface Edge {
 export interface ProjectState {
   nodes: NodeItem[];
   edges: Edge[];
+  frames: Frame[];
 }

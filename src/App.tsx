@@ -8,7 +8,7 @@ import {
   PORT_TYPES,
 } from "./lib/graph";
 import { loadProject, saveProject } from "./store/db";
-import type { NodeItem, PortType, ProjectState } from "./types";
+import type { Frame, NodeItem, PortType, ProjectState } from "./types";
 import "./styles.css";
 
 const initialProject: ProjectState = {
@@ -43,6 +43,7 @@ const initialProject: ProjectState = {
       toPortId: "i2",
     },
   ],
+  frames: [],
 };
 
 function App() {
@@ -55,8 +56,9 @@ function App() {
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
-    kind: "node" | "pan";
+    kind: "node" | "pan" | "frame";
     nodeId?: string;
+    frameId?: string;
     startX: number;
     startY: number;
     origX?: number;
@@ -68,7 +70,7 @@ function App() {
   useEffect(() => {
     (async () => {
       const saved = await loadProject();
-      if (saved && Array.isArray(saved.nodes) && Array.isArray(saved.edges)) {
+      if (saved && Array.isArray(saved.nodes) && Array.isArray(saved.edges) && Array.isArray(saved.frames)) {
         setProject(saved);
       }
     })();
@@ -101,6 +103,21 @@ function App() {
     setStatus("تمت إضافة بطاقة جديدة");
   };
 
+  const addFrame = () => {
+    const newFrame: Frame = {
+      id: crypto.randomUUID(),
+      title: `إطار ${project.frames.length + 1}`,
+      x: 180,
+      y: 120,
+      width: 340,
+      height: 220,
+      memberNodeIds: [],
+    };
+
+    setProject((prev) => ({ ...prev, frames: [...prev.frames, newFrame] }));
+    setStatus("تم إنشاء إطار جديد");
+  };
+
   const resetProject = () => {
     setProject(initialProject);
     setSelectedNodeId(null);
@@ -121,9 +138,33 @@ function App() {
       ...prev,
       nodes: prev.nodes.filter((node) => node.id !== nodeId),
       edges: prev.edges.filter((edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId),
+      frames: prev.frames.map((frame) => ({
+        ...frame,
+        memberNodeIds: frame.memberNodeIds.filter((id) => id !== nodeId),
+      })),
     }));
     setSelectedNodeId((current) => (current === nodeId ? null : current));
     setStatus("تم حذف البطاقة");
+  };
+
+  const assignSelectedToFrame = (frameId: string) => {
+    if (!selectedNodeId) {
+      setStatus("اختر بطاقة أولاً");
+      return;
+    }
+
+    setProject((prev) => ({
+      ...prev,
+      frames: prev.frames.map((frame) => {
+        if (frame.id !== frameId) return frame;
+        return {
+          ...frame,
+          memberNodeIds: [...new Set([...frame.memberNodeIds, selectedNodeId])],
+        };
+      }),
+    }));
+
+    setStatus("تمت إضافة البطاقة إلى الإطار");
   };
 
   const connect = (fromNodeId: string, fromPortId: string, toNodeId: string, toPortId: string) => {
@@ -196,7 +237,7 @@ function App() {
       const text = await file.text();
       const parsed = JSON.parse(text);
 
-      if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+      if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges) || !Array.isArray(parsed.frames)) {
         throw new Error("تنسيق الملف غير صالح");
       }
 
@@ -223,8 +264,20 @@ function App() {
     setSelectedNodeId(node.id);
   };
 
+  const onFramePointerDown = (event: React.PointerEvent<HTMLDivElement>, frame: Frame) => {
+    event.stopPropagation();
+    dragRef.current = {
+      kind: "frame",
+      frameId: frame.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      origX: frame.x,
+      origY: frame.y,
+    };
+  };
+
   const onStagePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest(".node")) return;
+    if ((event.target as HTMLElement).closest(".node") || (event.target as HTMLElement).closest(".frame")) return;
 
     dragRef.current = {
       kind: "pan",
@@ -252,6 +305,24 @@ function App() {
                 y: (dragRef.current!.origY ?? node.y) + dy,
               }
             : node
+        ),
+      }));
+    }
+
+    if (dragRef.current.kind === "frame" && dragRef.current.frameId) {
+      const dx = (event.clientX - dragRef.current.startX) / view.scale;
+      const dy = (event.clientY - dragRef.current.startY) / view.scale;
+
+      setProject((prev) => ({
+        ...prev,
+        frames: prev.frames.map((frame) =>
+          frame.id === dragRef.current!.frameId
+            ? {
+                ...frame,
+                x: (dragRef.current!.origX ?? frame.x) + dx,
+                y: (dragRef.current!.origY ?? frame.y) + dy,
+              }
+            : frame
         ),
       }));
     }
@@ -294,8 +365,15 @@ function App() {
         </div>
 
         <button type="button" onClick={addNode}>+ بطاقة</button>
+        <button type="button" onClick={addFrame}>+ إطار</button>
+        {project.frames.length > 0 && selectedNodeId && (
+          <button type="button" onClick={() => assignSelectedToFrame(project.frames[0].id)}>
+            تجميع
+          </button>
+        )}
         <button type="button" onClick={resetProject}>إعادة تعيين</button>
         <button type="button" onClick={exportProject}>تصدير</button>
+
         <label className="import-button">
           <input type="file" accept="application/json" onChange={importProject} />
           <span>استيراد</span>
@@ -326,6 +404,55 @@ function App() {
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
           }}
         >
+          {project.frames.map((frame) => (
+            <div
+              key={frame.id}
+              className="frame"
+              style={{
+                left: `${frame.x}px`,
+                top: `${frame.y}px`,
+                width: `${frame.width}px`,
+                height: `${frame.height}px`,
+              }}
+              onPointerDown={(event) => onFramePointerDown(event, frame)}
+            >
+              <div className="frame-header">
+                <input
+                  value={frame.title}
+                  onChange={(event) =>
+                    setProject((prev) => ({
+                      ...prev,
+                      frames: prev.frames.map((item) =>
+                        item.id === frame.id ? { ...item, title: event.target.value } : item
+                      ),
+                    }))
+                  }
+                />
+                <button
+                  type="button"
+                  className="delete-frame-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setProject((prev) => ({
+                      ...prev,
+                      frames: prev.frames.filter((item) => item.id !== frame.id),
+                    }));
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              {frame.memberNodeIds.length > 0 && (
+                <div className="frame-members">
+                  {frame.memberNodeIds.map((nodeId) => {
+                    const member = getNodeById(project.nodes, nodeId);
+                    return member ? <span key={nodeId}>{member.title}</span> : null;
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+
           <svg className="wire-layer" aria-label="Layer of wires">
             {project.edges.map((edge) => {
               const from = getNodeById(project.nodes, edge.fromNodeId);
@@ -339,11 +466,12 @@ function App() {
 
           {filteredNodes.map((node) => {
             const selected = node.id === selectedNodeId;
+            const inFrame = project.frames.some((frame) => frame.memberNodeIds.includes(node.id));
 
             return (
               <div
                 key={node.id}
-                className={`node ${selected ? "selected" : ""}`}
+                className={`node ${selected ? "selected" : ""} ${inFrame ? "in-frame" : ""}`}
                 style={{ left: `${node.x}px`, top: `${node.y}px` }}
                 onPointerDown={(event) => onNodePointerDown(event, node)}
               >
@@ -422,4 +550,3 @@ function App() {
 }
 
 export default App;
-
