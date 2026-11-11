@@ -48,8 +48,40 @@ export interface Edge {
   toPortId: string;
 }
 
+export interface KnowledgeCard {
+  id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  source: string;
+  createdAt: string;
+  summary: string;
+}
+
+export interface AiTask {
+  id: string;
+  title: string;
+  prompt: string;
+  result: string;
+  model: string;
+  status: "idle" | "running" | "done";
+}
+
+export interface FileItem {
+  id: string;
+  name: string;
+  type: "txt" | "md" | "json" | "csv" | "html";
+  content: string;
+  size: number;
+}
+
+export type WorkspaceMode = "graph" | "knowledge" | "ai" | "files";
+
 export interface ProjectState {
   nodes: NodeItem[];
   edges: Edge[];
   frames: Frame[];
+  cards: KnowledgeCard[];
+  aiTasks: AiTask[];
+  files: FileItem[];
 }

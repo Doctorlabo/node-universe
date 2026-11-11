@@ -38,8 +38,8 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: 64px 1fr;
-  height: 100vh;
+  grid-template-rows: 64px auto 1fr;
+  min-height: 100vh;
 }
 
 .toolbar {
@@ -60,6 +60,28 @@ button {
 
 .brand span {
   color: var(--accent);
+}
+
+.workspace-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workspace-toggle button,
+.toolbar button,
+.import-button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 9px 12px;
+}
+
+.workspace-toggle button.active {
+  border-color: var(--accent);
+  background: rgba(105, 167, 255, 0.14);
 }
 
 .search {
@@ -83,16 +105,158 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel-2);
-  color: var(--text);
-  padding: 9px 12px;
   cursor: pointer;
 }
 
 .import-button input {
   display: none;
+}
+
+.knowledge-panel,
+.ai-panel,
+.file-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  background: rgba(12, 17, 24, 0.95);
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knowledge-grid,
+.ai-grid,
+.file-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 14px;
+}
+
+.knowledge-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(20, 29, 42, 0.9);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.card-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  background: #101922;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: right;
+  cursor: pointer;
+}
+
+.card-item.selected {
+  border-color: var(--accent);
+  background: rgba(105, 167, 255, 0.12);
+}
+
+.knowledge-editor,
+.ai-card,
+.file-card {
+  background: #101922;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.knowledge-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.knowledge-editor input,
+.knowledge-editor textarea,
+.ai-card input,
+.ai-card textarea,
+.file-card input,
+.file-card textarea {
+  width: 100%;
+  background: #0d141d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.knowledge-editor textarea,
+.ai-card textarea,
+.file-card textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.ai-grid,
+.file-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.ai-card,
+.file-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-pill {
+  font-size: 0.7rem;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+}
+
+.status-pill.done {
+  background: rgba(143, 231, 177, 0.18);
+  color: #b8f7d2;
+}
+
+.status-pill.idle {
+  background: rgba(255, 255, 255, 0.08);
+  color: #dfeafc;
+}
+
+.status-pill.running {
+  background: rgba(105, 167, 255, 0.2);
+  color: #cfe2ff;
+}
+
+.file-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-header select {
+  background: #0d141d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .stage {
@@ -105,6 +269,7 @@ button {
   overflow: hidden;
   user-select: none;
   touch-action: none;
+  min-height: 280px;
 }
 
 .scene {
@@ -191,10 +356,6 @@ button {
   box-shadow: 0 0 0 1px var(--accent), 0 16px 30px rgba(0, 0, 0, 0.28);
 }
 
-.node.in-frame {
-  box-shadow: 0 0 0 1px rgba(105, 167, 255, 0.7), 0 14px 28px rgba(0, 0, 0, 0.22);
-}
-
 .node-header {
   display: flex;
   align-items: center;
@@ -276,15 +437,36 @@ button {
   font-size: 0.75rem;
 }
 
-button {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 9px 12px;
-}
-
 button:hover,
 .import-button:hover {
   border-color: var(--accent);
+}
+
+.empty-state {
+  color: var(--muted);
+  padding: 12px;
+}
+
+.empty-state.large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  font-size: 1.1rem;
+}
+
+.danger {
+  background: rgba(255, 124, 124, 0.12);
+  border-color: rgba(255, 124, 124, 0.5);
+  color: #ffd7d7;
+}
+
+@media (max-width: 900px) {
+  .knowledge-grid {
+    grid-template-columns: 1fr;
+  }
+  .search {
+    width: 100%;
+    margin-inline-start: 0;
+  }
 }
